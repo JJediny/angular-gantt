@@ -1,23 +1,26 @@
-'use strict';
-gantt.directive('ganttTask', [function() {
-    return {
-        restrict: 'E',
-        require: '^ganttRow',
-        templateUrl: function(tElement, tAttrs) {
-            if (tAttrs.templateUrl === undefined) {
-                return 'template/default.task.tmpl.html';
-            } else {
-                return tAttrs.templateUrl;
-            }
-        },
-        replace: true,
-        controller: ['$scope', '$element', function($scope, $element) {
+(function(){
+    'use strict';
+    angular.module('gantt').directive('ganttTask', ['GanttDirectiveBuilder', 'moment', function(Builder, moment) {
+        var builder = new Builder('ganttTask');
+        builder.controller = function($scope, $element) {
             $scope.task.$element = $element;
+            $scope.task.$scope = $scope;
 
-            $scope.gantt.api.directives.raise.new('ganttTask', $scope, $element);
-            $scope.$on('$destroy', function() {
-                $scope.gantt.api.directives.raise.destroy('ganttTask', $scope, $element);
+            $scope.getTaskContent = function() {
+                if ($scope.task.model.content !== undefined) {
+                    return $scope.task.model.content;
+                }
+                return $scope.task.rowsManager.gantt.options.value('taskContent');
+            };
+
+            $scope.simplifyMoment = function(d) {
+                return moment.isMoment(d) ? d.unix() : d;
+            };
+
+            $scope.$watchGroup(['simplifyMoment(task.model.from)', 'simplifyMoment(task.model.to)'], function() {
+                $scope.task.updatePosAndSize();
             });
-        }]
-    };
-}]);
+        };
+        return builder.build();
+    }]);
+}());

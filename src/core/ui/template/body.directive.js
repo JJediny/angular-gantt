@@ -1,24 +1,12 @@
-'use strict';
-gantt.directive('ganttBody', [function() {
-    return {
-        restrict: 'E',
-        require: '^gantt',
-        transclude: true,
-        replace: true,
-        templateUrl: function(tElement, tAttrs) {
-            if (tAttrs.templateUrl === undefined) {
-                return 'template/default.body.tmpl.html';
-            } else {
-                return tAttrs.templateUrl;
-            }
-        },
-        controller: ['$scope', '$element', function($scope, $element) {
+(function(){
+    'use strict';
+    angular.module('gantt').directive('ganttBody', ['GanttDirectiveBuilder', function(Builder) {
+        var builder = new Builder('ganttBody');
+        builder.controller = function($scope, $element) {
             $scope.gantt.body.$element = $element;
+            $scope.gantt.body.$scope = $scope;
+        };
+        return builder.build();
+    }]);
+}());
 
-            $scope.gantt.api.directives.raise.new('ganttBody', $scope, $element);
-            $scope.$on('$destroy', function() {
-                $scope.gantt.api.directives.raise.destroy('ganttBody', $scope, $element);
-            });
-        }]
-    };
-}]);

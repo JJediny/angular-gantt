@@ -1,34 +1,13 @@
-'use strict';
-gantt.directive('ganttTimeFrame', [function() {
-    return {
-        restrict: 'E',
-        require: '^ganttColumn',
-        transclude: true,
-        replace: true,
-        templateUrl: function(tElement, tAttrs) {
-            if (tAttrs.templateUrl === undefined) {
-                return 'template/default.timeFrame.tmpl.html';
-            } else {
-                return tAttrs.templateUrl;
-            }
-        },
-        controller: ['$scope', '$element', function($scope, $element) {
+(function(){
+    'use strict';
+    angular.module('gantt').directive('ganttTimeFrame', ['GanttDirectiveBuilder', function(Builder) {
+        var builder = new Builder('ganttTimeFrame');
+        builder.controller = function($scope, $element) {
             $scope.timeFrame.$element = $element;
+            $scope.timeFrame.$scope = $scope;
+            $scope.timeFrame.updateView();
+        };
+        return builder.build();
+    }]);
+}());
 
-            $scope.getClass = function() {
-                var classes = ['gantt-timeframe' + ($scope.timeFrame.working ? '' : '-non') + '-working'];
-
-                if ($scope.timeFrame.classes) {
-                    classes = classes.concat($scope.timeFrame.classes);
-                }
-                return classes;
-            };
-
-            $scope.gantt.api.directives.raise.new('ganttTimeFrame', $scope, $element);
-            $scope.$on('$destroy', function() {
-                $scope.gantt.api.directives.raise.destroy('ganttTimeFrame', $scope, $element);
-            });
-
-        }]
-    };
-}]);

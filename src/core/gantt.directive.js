@@ -1,70 +1,81 @@
-'use strict';
-/*global gantt: true*/
-var gantt = angular.module('gantt', ['gantt.templates', 'angularMoment']);
-gantt.directive('gantt', ['Gantt', 'ganttOptions', 'GanttCalendar', 'moment', 'ganttMouseOffset', 'ganttDebounce', 'ganttEnableNgAnimate', function(Gantt, Options, Calendar, moment, mouseOffset, debounce, enableNgAnimate) {
-    return {
-        restrict: 'EA',
-        transclude: true,
-        templateUrl: function(tElement, tAttrs) {
-            if (tAttrs.templateUrl === undefined) {
-                return 'template/default.gantt.tmpl.html';
-            } else {
-                return tAttrs.templateUrl;
+(function(){
+    'use strict';
+    angular.module('gantt', ['gantt.templates', 'angularMoment'])
+        .directive('gantt', ['Gantt', 'ganttEnableNgAnimate', '$timeout', '$templateCache', function(Gantt, enableNgAnimate, $timeout, $templateCache) {
+        return {
+            restrict: 'A',
+            transclude: true,
+            templateUrl: function(tElement, tAttrs) {
+                var templateUrl;
+                if (tAttrs.templateUrl === undefined) {
+                    templateUrl = 'template/gantt.tmpl.html';
+                } else {
+                    templateUrl = tAttrs.templateUrl;
+                }
+                if (tAttrs.template !== undefined) {
+                    $templateCache.put(templateUrl, tAttrs.template);
+                }
+                return templateUrl;
+            },
+            scope: {
+                sortMode: '=?',
+                filterTask: '=?',
+                filterTaskComparator: '=?',
+                filterRow: '=?',
+                filterRowComparator: '=?',
+                viewScale: '=?',
+                columnWidth: '=?',
+                expandToFit: '=?',
+                shrinkToFit: '=?',
+                showSide: '=?',
+                allowSideResizing: '=?',
+                fromDate: '=?',
+                toDate: '=?',
+                currentDateValue: '=?',
+                currentDate: '=?',
+                daily: '=?',
+                autoExpand: '=?',
+                taskOutOfRange: '=?',
+                taskContent: '=?',
+                rowContent: '=?',
+                maxHeight: '=?',
+                sideWidth: '=?',
+                headers: '=?',
+                headersFormats: '=?',
+                timeFrames: '=?',
+                dateFrames: '=?',
+                timeFramesWorkingMode: '=?',
+                timeFramesNonWorkingMode: '=?',
+                timespans: '=?',
+                columnMagnet: '=?',
+                shiftColumnMagnet: '=?',
+                timeFramesMagnet: '=?',
+                data: '=?',
+                api: '=?',
+                options: '=?'
+            },
+            controller: ['$scope', '$element', function($scope, $element) {
+                for (var option in $scope.options) {
+                    $scope[option] = $scope.options[option];
+                }
+
+                // Disable animation if ngAnimate is present, as it drops down performance.
+                enableNgAnimate($element, false);
+
+                $scope.gantt = new Gantt($scope, $element);
+                this.gantt = $scope.gantt;
+            }],
+            link: function(scope, element) {
+                scope.gantt.api.directives.raise.new('gantt', scope, element);
+                scope.$on('$destroy', function() {
+                    scope.gantt.api.directives.raise.destroy('gantt', scope, element);
+                });
+
+                $timeout(function() {
+                    scope.gantt.initialized();
+                });
             }
-        },
-        scope: {
-            sortMode: '=?', // Possible modes: 'name', 'date', 'custom'
-            filterTask: '=?', // Task filter as a angularJS expression
-            filterTaskComparator: '=?', // Comparator to use for the task filter
-            filterRow: '=?', // Row filter as a angularJS expression
-            filterRowComparator: '=?', // Comparator to use for the row filter
-            viewScale: '=?', // Possible scales: 'hour', 'day', 'week', 'month'
-            columnWidth: '=?', // Defines the size of a column, 1 being 1em per unit (hour or day, .. depending on scale),
-            allowLabelsResizing: '=?', // Set to true if the user should be able to resize the label section.
-            fromDate: '=?', // If not specified will use the earliest task date (note: as of now this can only expand not shrink)
-            toDate: '=?', // If not specified will use the latest task date (note: as of now this can only expand not shrink)
-            currentDateValue: '=?', // If specified, the current date will be displayed
-            currentDate: '=?', // The display of currentDate ('none', 'line' or 'column').
-            autoExpand: '=?', // Set this both, left or right if the date range shall expand if the user scroll to the left or right end. Otherwise set to false or none.
-            taskOutOfRange: '=?', // Set this to expand or truncate to define the behavior of tasks going out of visible range.
-            maxHeight: '=?', // Define the maximum height of the Gantt in PX. > 0 to activate max height behaviour.
-            labelsWidth: '=?', // Define the width of the labels section. Changes when the user is resizing the labels width
-            showLabelsColumn: '=?', // Whether to show column with labels or not. Default (true)
-            showTooltips: '=?', // True when tooltips shall be enabled. Default (true)
-            headers: '=?', // An array of units for headers.
-            headersFormats: '=?', // An array of corresponding formats for headers.
-            timeFrames: '=?',
-            dateFrames: '=?',
-            timeFramesWorkingMode: '=?',
-            timeFramesNonWorkingMode: '=?',
-            tooltipDateFormat: '=?',
-            timespans: '=?',
-            columnMagnet: '=?',
-            data: '=?',
-            api: '=?',
-            options: '=?'
-        },
-        controller: ['$scope', '$element', function($scope, $element) {
-            for (var option in $scope.options) {
-                $scope[option] = $scope.options[option];
-            }
+        };
+    }]);
+}());
 
-            Options.initialize($scope);
-
-            // Disable animation if ngAnimate is present, as it drops down performance.
-            enableNgAnimate(false, $element);
-
-            $scope.gantt = new Gantt($scope, $element);
-            this.gantt = $scope.gantt;
-        }],
-        link: function(scope, element) {
-            // Gantt is initialized. Signal that the Gantt is ready.
-            scope.gantt.api.core.raise.ready(scope.gantt.api);
-
-            scope.gantt.api.directives.raise.new('gantt', scope, element);
-            scope.$on('$destroy', function() {
-                scope.gantt.api.directives.raise.destroy('gantt', scope, element);
-            });
-        }
-    };
-}]);

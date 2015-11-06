@@ -1,12 +1,15 @@
-'use strict';
-gantt.directive('ganttVerticalScrollReceiver', function() {
-    // The element with this attribute will scroll at the same time as the scrollSender element
+(function(){
+    'use strict';
+    angular.module('gantt').directive('ganttVerticalScrollReceiver', function() {
+        // The element with this attribute will scroll at the same time as the scrollSender element
 
-    return {
-        restrict: 'A',
-        require: '^ganttScrollManager',
-        controller: ['$scope', '$element', function($scope, $element) {
-            $scope.scrollManager.vertical.push($element[0]);
-        }]
-    };
-});
+        return {
+            restrict: 'A',
+            require: '^ganttScrollManager',
+            link: function(scope, element, attrs, ganttScrollManagerCtrl) {
+                ganttScrollManagerCtrl.registerVerticalReceiver(element);
+            }
+        };
+    });
+}());
+

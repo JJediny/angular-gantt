@@ -1,7 +1,10 @@
-'use strict';
-gantt.factory('GanttBodyRows', [function() {
-    var BodyRows = function($element) {
-        this.$element = $element;
-    };
-    return BodyRows;
-}]);
+(function(){
+    'use strict';
+    angular.module('gantt').factory('GanttBodyRows', [function() {
+        var BodyRows = function(body) {
+            this.body = body;
+        };
+        return BodyRows;
+    }]);
+}());
+

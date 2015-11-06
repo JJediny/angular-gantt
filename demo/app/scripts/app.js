@@ -12,12 +12,17 @@ angular.module('angularGanttDemoApp', [
     'gantt', // angular-gantt.
     'gantt.sortable',
     'gantt.movable',
+    'gantt.drawtask',
     'gantt.tooltips',
     'gantt.bounds',
     'gantt.progress',
-    'mgcrea.ngStrap' // handle bootstrap properly in angularJS applications.
-]).config(['$compileProvider', function(/*$compileProvider*/) {
-    // Wait angular.js#9515 fix to disable debug info.
-    // https://github.com/angular/angular.js/issues/9515
-    //$compileProvider.debugInfoEnabled(false); // Remove debug info (angularJS >= 1.3)
+    'gantt.table',
+    'gantt.tree',
+    'gantt.groups',
+    'gantt.overlap',
+    'gantt.resizeSensor',
+    'ngAnimate',
+    'mgcrea.ngStrap'
+]).config(['$compileProvider', function($compileProvider) {
+    $compileProvider.debugInfoEnabled(false); // Remove debug info (angularJS >= 1.3)
 }]);

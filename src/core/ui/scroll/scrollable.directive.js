@@ -1,93 +1,107 @@
-'use strict';
-gantt.directive('ganttScrollable', ['ganttDebounce', 'ganttLayout', function(debounce, layout) {
-    return {
-        restrict: 'E',
-        transclude: true,
-        replace: true,
-        templateUrl: function(tElement, tAttrs) {
-            if (tAttrs.templateUrl === undefined) {
-                return 'template/default.scrollable.tmpl.html';
-            } else {
-                return tAttrs.templateUrl;
-            }
-        },
-        controller: ['$scope', '$element', function($scope, $element) {
+(function(){
+    'use strict';
+    angular.module('gantt').directive('ganttScrollable', ['GanttDirectiveBuilder', '$timeout', 'ganttDebounce', 'moment', function(Builder, $timeout, debounce, moment) {
+        var builder = new Builder('ganttScrollable');
+        builder.controller = function($scope, $element) {
             $scope.gantt.scroll.$element = $element;
-
-            var scrollBarWidth = layout.getScrollBarWidth();
             var lastScrollLeft;
+            var autoExpandTimer;
 
-            var lastAutoExpand;
-            var autoExpandCoolDownPeriod = 500;
             var autoExpandColumns = function(el, date, direction) {
-                if ($scope.autoExpand !== 'both' && $scope.autoExpand !== true && $scope.autoExpand !== direction) {
-                    return;
-                }
-
-                if (Date.now() - lastAutoExpand < autoExpandCoolDownPeriod) {
+                var autoExpand = $scope.gantt.options.value('autoExpand');
+                if (autoExpand !== 'both' && autoExpand !== true && autoExpand !== direction) {
                     return;
                 }
 
                 var from, to;
-                var expandHour = 1, expandDay = 31;
 
-                if (direction === 'left') {
-                    from = $scope.viewScale === 'hour' ? moment(date).add(-expandHour, 'day') : moment(date).add(-expandDay, 'day');
-                    to = date;
+                var viewScale = $scope.gantt.options.value('viewScale');
+                viewScale = viewScale.trim();
+                if (viewScale.charAt(viewScale.length - 1) === 's') {
+                    viewScale = viewScale.substring(0, viewScale.length - 1);
+                }
+                var viewScaleValue;
+                var viewScaleUnit;
+                var splittedViewScale;
+
+                if (viewScale) {
+                    splittedViewScale = viewScale.split(' ');
+                }
+                if (splittedViewScale && splittedViewScale.length > 1) {
+                    viewScaleValue = parseFloat(splittedViewScale[0]);
+                    viewScaleUnit = splittedViewScale[splittedViewScale.length - 1];
                 } else {
-                    from = date;
-                    to = $scope.viewScale === 'hour' ? moment(date).add(expandHour, 'day') : moment(date).add(expandDay, 'day');
+                    viewScaleValue = 1;
+                    viewScaleUnit = viewScale;
                 }
 
-                $scope.fromDate = from;
-                $scope.toDate = to;
-                lastAutoExpand = Date.now();
+                if (direction === 'left') {
+                    from = moment(date).add(-5 * viewScaleValue, viewScaleUnit);
+                    $scope.fromDate = from;
+                } else {
+                    to = moment(date).add(5 * viewScaleValue, viewScaleUnit);
+                    $scope.toDate = to;
+                }
+
+                $scope.gantt.api.scroll.raise.scroll(el.scrollLeft, date, direction);
             };
 
             $element.bind('scroll', debounce(function() {
                 var el = $element[0];
+                var currentScrollLeft = el.scrollLeft;
                 var direction;
                 var date;
 
-                if (el.scrollLeft < lastScrollLeft && el.scrollLeft === 0) {
+                $scope.gantt.scroll.cachedScrollLeft = currentScrollLeft;
+                $scope.gantt.columnsManager.updateVisibleColumns();
+                $scope.gantt.rowsManager.updateVisibleObjects();
+
+                if (currentScrollLeft < lastScrollLeft && currentScrollLeft === 0) {
                     direction = 'left';
                     date = $scope.gantt.columnsManager.from;
-                } else if (el.scrollLeft > lastScrollLeft && el.offsetWidth + el.scrollLeft >= el.scrollWidth - 1) {
+                } else if (currentScrollLeft > lastScrollLeft && el.offsetWidth + currentScrollLeft >= el.scrollWidth - 1) {
                     direction = 'right';
                     date = $scope.gantt.columnsManager.to;
                 }
 
-                lastScrollLeft = el.scrollLeft;
+                lastScrollLeft = currentScrollLeft;
 
                 if (date !== undefined) {
-                    autoExpandColumns(el, date, direction);
-                    $scope.gantt.api.scroll.raise.scroll(el.scrollLeft, date, direction);
+                    if (autoExpandTimer) {
+                        $timeout.cancel(autoExpandTimer);
+                    }
+
+                    autoExpandTimer = $timeout(function() {
+                        autoExpandColumns(el, date, direction);
+                    }, 300);
                 } else {
-                    $scope.gantt.api.scroll.raise.scroll(el.scrollLeft);
+                    $scope.gantt.api.scroll.raise.scroll(currentScrollLeft);
                 }
             }, 5));
 
             $scope.getScrollableCss = function() {
                 var css = {};
 
-                if ($scope.ganttElementWidth - ($scope.showLabelsColumn ? $scope.labelsWidth : 0) > $scope.gantt.width + scrollBarWidth) {
-                    css.width = $scope.gantt.width + scrollBarWidth + 'px';
+                var maxHeight = $scope.gantt.options.value('maxHeight');
+                if (maxHeight > 0) {
+                    css['max-height'] = maxHeight - $scope.gantt.header.getHeight() + 'px';
+                    css['overflow-y'] = 'auto';
+
+                    if ($scope.gantt.scroll.isVScrollbarVisible()) {
+                        css['border-right'] = 'none';
+                    }
                 }
 
-                if ($scope.maxHeight > 0) {
-                    css['max-height'] = $scope.maxHeight - $scope.gantt.header.getHeight() + 'px';
-                    css['overflow-y'] = 'auto';
-                } else {
-                    css['overflow-y'] = 'hidden';
+                var columnWidth = this.gantt.options.value('columnWidth');
+                var bodySmallerThanGantt = $scope.gantt.width === 0 ? false: $scope.gantt.width < $scope.gantt.getWidth() - $scope.gantt.side.getWidth();
+                if (columnWidth !== undefined && bodySmallerThanGantt) {
+                    css.width = ($scope.gantt.width + this.gantt.scroll.getBordersWidth()) + 'px';
                 }
 
                 return css;
             };
+        };
+        return builder.build();
+    }]);
+}());
 
-            $scope.gantt.api.directives.raise.new('ganttScrollable', $scope, $element);
-            $scope.$on('$destroy', function() {
-                $scope.gantt.api.directives.raise.destroy('ganttScrollable', $scope, $element);
-            });
-        }]
-    };
-}]);

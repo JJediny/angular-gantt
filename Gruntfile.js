@@ -1,7 +1,23 @@
 'use strict';
+/*jshint globalstrict: true */
 /*jshint undef:false */
+/*jshint camelcase:false */
 module.exports = function(grunt) {
-    var plugins = ['sortable', 'movable', 'tooltips', 'bounds', 'progress'];
+    var plugins = ['labels', 'table', 'tree', 'groups', 'sortable', 'movable', 'drawtask', 'tooltips', 'bounds',
+        'progress', 'resizeSensor', 'overlap'];
+
+    var coverage = grunt.option('coverage');
+
+    var sources = {
+        js: {
+            core:['src/core/*.js', 'src/core/**/*.js', '.tmp/generated/core/**/*.js'],
+            plugins: ['src/plugins/*.js', 'src/plugins/**/*.js', '.tmp/generated/plugins/**/*.js']
+        },
+        css: {
+            core: ['src/core/*.css', 'src/core/**/*.css'],
+            plugins: ['src/plugins/*.css', 'src/plugins/**/*.css']
+        }
+    };
 
     var config = {
         pkg: grunt.file.readJSON('package.json'),
@@ -21,81 +37,227 @@ module.exports = function(grunt) {
             options: {
                 separator: '\n',
                 sourceMap: true,
-                // Replace all 'use strict' statements in the code with a single one at the top
                 banner: '/*\n' +
-                'Project: angular-gantt for AngularJS\n' +
-                'Author: Marco Schweighauser\n' +
-                'Contributors: Rémi Alvergnat\n' +
-                'License: MIT.\n' +
-                'Github: https://github.com/angular-gantt/angular-gantt\n' +
-                '*/\n' +
-                '\'use strict\';\n',
-                process: function(src) {
-                    return src.replace(/(^|\n)[ \t]*('use strict'|"use strict");?\s*/g, '$1\n')
-                        .replace(/(^|\n)[ \t]*(\/\*\s*global\s+.*?:\s+.*?\*\/);?\s*/g, '$1\n');
-                }
+                'Project: <%= pkg.name %> v<%= pkg.version %> - <%= pkg.description %>\n' +
+                'Authors: <%= pkg.author %>, <%= pkg.contributors %>\n' +
+                'License: <%= pkg.license %>\n' +
+                'Homepage: <%= pkg.homepage %>\n' +
+                'Github: <%= pkg.repository.url %>\n' +
+                '*/\n'
             },
             core: {
-                src: ['src/core/*.js', 'src/core/**/*.js', '.tmp/generated/core/**/*.js'],
+                src: sources.js.core,
                 dest: 'assets/<%= pkg.name %>.js'
             },
             plugins: {
-                src: ['.tmp/generated/plugins/**/*.js', 'src/plugins/*.js', 'src/plugins/**/*.js'],
+                src: sources.js.plugins,
                 dest: 'assets/<%= pkg.name %>-plugins.js'
             }
         },
         concatCss: {
             core: {
-                src: ['src/core/*.css', 'src/core/**/*.css'],
+                src: sources.css.core,
                 dest: 'assets/<%= pkg.name %>.css'
             },
             plugins: {
-                src: ['src/plugins/*.css', 'src/plugins/**/*.css'],
+                src: sources.css.plugins,
                 dest: 'assets/<%= pkg.name %>-plugins.css'
             }
         },
+        cleanempty: {
+            options: {},
+            assets: 'assets/**/*'
+        },
+        clean: {
+            site: ['site'],
+            dist: ['dist']
+        },
         uglify: {
             options: {
-                banner: '/*! <%= pkg.name %> <%= grunt.template.today("dd-mm-yyyy") %> */\nuse strict;\n',
+                banner: '/*\n' +
+                'Project: <%= pkg.name %> v<%= pkg.version %> - <%= pkg.description %>\n' +
+                'Authors: <%= pkg.author %>, <%= pkg.contributors %>\n' +
+                'License: <%= pkg.license %>\n' +
+                'Homepage: <%= pkg.homepage %>\n' +
+                'Github: <%= pkg.repository.url %>\n' +
+                '*/\n',
                 sourceMap: true
             },
             core: {
                 files: {
-                    'assets/<%= pkg.name %>.min.js': ['<%= concat.core.dest %>']
+                    'dist/<%= pkg.name %>.min.js': sources.js.core
                 }
             },
             plugins: {
                 files: {
-                    'assets/<%= pkg.name %>-plugins.min.js': ['<%= concat.plugins.dest %>']
+                    'dist/<%= pkg.name %>-plugins.min.js': sources.js.plugins
                 }
             }
         },
         cssmin: {
             core: {
-                src: ['src/core/*.css'],
-                dest: 'assets/<%= pkg.name %>.min.css'
+                src: sources.css.core,
+                dest: 'dist/<%= pkg.name %>.min.css'
             },
             plugins: {
-                src: ['src/plugins/*.css', 'src/plugins/**/*.css'],
-                dest: 'assets/<%= pkg.name %>-plugins.min.css'
+                src: sources.css.plugins,
+                dest: 'dist/<%= pkg.name %>-plugins.min.css'
+            }
+        },
+        copy: {
+            assetsToDist: {
+                files: [
+                    // includes files within path
+                    {expand: true, cwd: 'assets/', src: ['**'], dest: 'dist/'},
+                ]
+            },
+            demoToSite: {
+                files: [
+                    // includes files within path
+                    {expand: true, cwd: 'demo/dist/', src: ['**'], dest: 'site/demo'},
+                ]
+            },
+            ghPagesToSite: {
+                files: [
+                    // includes files within path
+                    {expand: true, cwd: 'gh-pages/', src: ['**'], dest: 'site/'},
+                ]
             }
         },
         jshint: {
-            files: ['Gruntfile.js', 'src/**/*.js'],
-            options: {
-                jshintrc: '.jshintrc',
-                reporter: require('jshint-stylish')
+            src: {
+                options: {
+                    jshintrc: '.jshintrc',
+                    reporter: require('jshint-stylish')
+                },
+                src: ['Gruntfile.js', 'src/**/*.js']
+            },
+            test: {
+                options: {
+                    jshintrc: 'test/spec/.jshintrc'
+                },
+                src: ['test/spec/**/*.js']
             }
         },
         watch: {
-            files: ['<%= jshint.files %>', 'src/**/*.css', 'src/**/*.html'],
+            files: [].concat(sources.js.core, sources.js.plugins, sources.css.core, sources.css.plugins, ['src/**/*.html']),
             tasks: ['build']
+        },
+        autoprefixer: {
+            options: {
+                // Task-specific options go here.
+            },
+            core: {
+                src: sources.css.core
+            },
+            plugins: {
+                src: sources.css.plugins
+            }
         },
         karma: {
             unit: {
-                configFile: 'test/karma.conf.js',
+                configFile: coverage ? 'test/karma-coverage.conf.js' : 'test/karma.conf.js',
                 singleRun: true
             }
+        },
+        coveralls: {
+            options: {
+                force: true,
+                coverageDir: 'coverage-results',
+                recursive: true
+            }
+        },
+        connect: {
+            options: {
+                port: 9101,
+                hostname: '0.0.0.0',
+                keepalive: true,
+                livereload: 39729
+            },
+            plunker: {
+                options: {
+                    open: true,
+                    middleware: function(connect) {
+                        return [
+                            connect().use(
+                                '/bower_components', connect.static('./bower_components')
+                            ),
+                            connect().use(
+                                '/assets', connect.static('./assets')
+                            ),
+                            connect().use(
+                                '/dist', connect.static('./dist')
+                            ),
+                            connect.static('plunker')
+                        ];
+                    }
+                }
+            }
+        },
+        run: {
+            buildDemo: {
+                options: {
+                    cwd: 'demo'
+                },
+                cmd: 'grunt'
+            },
+            buildDocs: {
+                exec: 'mkdocs build --clean'
+            }
+        },
+        replace: {
+            site: {
+                options: {
+                    patterns: [
+                        {
+                            match: 'version',
+                            replacement: '<%= pkg.version %>'
+                        }
+                    ]
+                },
+                files: [
+                    {src: ['site/**/*.html'], dest: './'}
+                ]
+            },
+            siteIndexTitle: {
+                options: {
+                    patterns: [
+                        {
+                            match: /<title>.*?<\/title>/,
+                            replacement: '<title>Angular Gantt - Gantt chart component for AngularJS</title>\n'+
+                                         '        <meta property="og:title" content="Angular Gantt" />\n'+
+                                         '        <meta property="og:description" content="Gantt chart component for AngularJS" />\n'+
+                                         '        <meta property="og:type" content="website" />\n'+
+                                         '        <meta property="og:url" content="https://www.angular-gantt.com/" />\n'+
+                                         '        <meta property="og:image" content="https://www.angular-gantt.com/img/angular-gantt.png" />'
+                        }
+                    ]
+                },
+                files: [
+                    {src: ['site/index.html'], dest: './'}
+                ]
+            },
+            siteMkdocsFix : { // https://github.com/tomchristie/mkdocs/issues/240. Wait for Mkdocs>0.11.1.
+                options: {
+                    usePrefix: false,
+                    patterns: [
+                        {
+                            match: /script src=".{2}\/assets/g,
+                            replacement: 'script src="assets'
+                        }
+                    ]
+                },
+                files: [
+                    {src: ['site/**/*.html'], dest: './'}
+                ]
+            }
+        },
+        'gh-pages': {
+            options: {
+                base: 'site',
+                message: 'chore(site): Automatic update (grunt-gh-pages)'
+            },
+            src: ['**']
         }
     };
 
@@ -107,7 +269,7 @@ module.exports = function(grunt) {
             dest: '.tmp/generated/plugins/' + plugin + '/html2js.js'
         };
         config.concat[plugin] = {
-            src: ['src/plugins/' + plugin + '.js', 'src/plugins/' + plugin + '/**/*.js'],
+            src: ['src/plugins/' + plugin + '.js', 'src/plugins/' + plugin + '/**/*.js', '.tmp/generated/plugins/' + plugin + '/*.js'],
             dest: 'assets/<%= pkg.name %>-' + plugin + '-plugin.js'
         };
         config.concatCss[plugin] = {
@@ -116,10 +278,10 @@ module.exports = function(grunt) {
         };
         config.cssmin[plugin] = {
             src: ['src/plugins/' + plugin + '.css', 'src/plugins/' + plugin + '/**/*.css'],
-            dest: 'assets/<%= pkg.name %>-' + plugin + '-plugin.min.css'
+            dest: 'dist/<%= pkg.name %>-' + plugin + '-plugin.min.css'
         };
         var uglifyFiles = {};
-        uglifyFiles['assets/<%= pkg.name %>-' + plugin + '.min.js'] = ['<%= concat.' + plugin + '.dest %>'];
+        uglifyFiles['dist/<%= pkg.name %>-' + plugin + '-plugin.min.js'] = config.concat[plugin].src;
         config.uglify[plugin] = {files: uglifyFiles};
     }
 
@@ -130,8 +292,16 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-contrib-watch');
     grunt.loadNpmTasks('grunt-contrib-concat');
     grunt.loadNpmTasks('grunt-contrib-cssmin');
-
+    grunt.loadNpmTasks('grunt-contrib-copy');
+    grunt.loadNpmTasks('grunt-contrib-clean');
+    grunt.loadNpmTasks('grunt-contrib-connect');
+    grunt.loadNpmTasks('grunt-replace');
     grunt.loadNpmTasks('grunt-html2js');
+    grunt.loadNpmTasks('grunt-autoprefixer');
+    grunt.loadNpmTasks('grunt-cleanempty');
+    grunt.loadNpmTasks('grunt-gh-pages');
+    grunt.loadNpmTasks('grunt-run');
+    grunt.loadNpmTasks('grunt-release-it');
 
     grunt.loadNpmTasks('grunt-karma');
 
@@ -142,9 +312,21 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-contrib-concat');
     // End of ugliness
 
+    grunt.loadNpmTasks('grunt-karma-coveralls');
+
     grunt.registerTask('test', ['karma']);
 
-    grunt.registerTask('build', ['html2js', 'jshint', 'concat', 'concatCss', 'uglify', 'cssmin']);
+    grunt.registerTask('build', ['autoprefixer', 'html2js', 'jshint', 'concat', 'concatCss', 'cleanempty']);
+
+    grunt.registerTask('buildDemo', ['run:buildDemo']);
+
+    grunt.registerTask('buildSite', ['clean:site', 'run:buildDocs', 'run:buildDemo', 'copy:demoToSite', 'copy:ghPagesToSite', 'replace:site', 'replace:siteIndexTitle', 'replace:siteMkdocsFix']);
+
+    grunt.registerTask('uploadSite', ['gh-pages']);
+
+    grunt.registerTask('dist', ['clean:dist', 'build', 'buildSite', 'copy:assetsToDist', 'uglify', 'cssmin']);
+
+    grunt.registerTask('plunker', ['connect:plunker']);
 
     grunt.registerTask('default', ['build', 'test']);
 
